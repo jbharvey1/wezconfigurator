@@ -5,6 +5,7 @@ A web-based GUI for configuring [WezTerm](https://wezfurlong.org/wezterm/), the 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Flask](https://img.shields.io/badge/Flask-3.0%2B-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+[![Follow on X](https://img.shields.io/badge/follow-%40boschzilla-black.svg?logo=x)](https://x.com/boschzilla)
 
 ---
 
