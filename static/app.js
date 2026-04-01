@@ -1,14 +1,18 @@
 let config = {};
 let options = {};
+let colorSchemes = {};
 let currentSection = 'font';
+let activePreviewTab = 'visual';
 
 async function init() {
-  const [cfgResp, optResp] = await Promise.all([
+  const [cfgResp, optResp, schemesResp] = await Promise.all([
     fetch('/api/config').then(r => r.json()),
     fetch('/api/options').then(r => r.json()),
+    fetch('/api/color-schemes').then(r => r.json()),
   ]);
   config = cfgResp.config;
   options = optResp;
+  colorSchemes = schemesResp;
 
   if (cfgResp.source) {
     document.getElementById('source-label').textContent = `Loaded from: ${cfgResp.source}`;
@@ -17,6 +21,7 @@ async function init() {
   populateOptions();
   loadConfigToUI();
   updatePreview();
+  updateVisualPreview();
 
   // Explicitly wire up all selects and inputs for immediate preview updates
   document.querySelectorAll('.main select').forEach(el => {
@@ -35,6 +40,17 @@ async function init() {
       const section = btn.dataset.section;
       document.getElementById(`section-${section}`).classList.add('active');
       currentSection = section;
+    });
+  });
+
+  // Preview tab switching
+  document.querySelectorAll('.preview-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      activePreviewTab = tab.dataset.preview;
+      document.querySelectorAll('.preview-pane').forEach(p => p.classList.remove('active'));
+      document.getElementById(`${activePreviewTab}-preview-pane`).classList.add('active');
     });
   });
 }
@@ -361,6 +377,154 @@ async function updatePreview() {
   }
 }
 
+function updateVisualPreview() {
+  readConfigFromUI();
+  const vp = document.getElementById('visual-preview');
+  const terminal = document.getElementById('vp-terminal');
+  const tabBar = document.getElementById('vp-tab-bar');
+  const cursor = document.getElementById('vp-cursor');
+  const fontBadge = document.getElementById('vp-font-badge');
+
+  if (!vp) return;
+
+  // Font settings
+  const fontFamily = config.font?.family || 'JetBrains Mono';
+  const fontSize = config.font?.size || 14;
+  const fontWeight = config.font?.weight || 'Regular';
+  const lineHeight = config.font?.line_height || 1.0;
+
+  // Map WezTerm weight names to CSS
+  const weightMap = {
+    Thin: 100, ExtraLight: 200, Light: 300, DemiLight: 350,
+    Book: 380, Regular: 400, Medium: 500, DemiBold: 600,
+    Bold: 700, ExtraBold: 800, Black: 900, ExtraBlack: 950,
+  };
+  const cssWeight = weightMap[fontWeight] || 400;
+
+  terminal.style.fontFamily = `'${fontFamily}', 'JetBrains Mono', monospace`;
+  terminal.style.fontSize = `${fontSize * 1.1}px`; // pt to px approx
+  terminal.style.fontWeight = cssWeight;
+  terminal.style.lineHeight = lineHeight;
+
+  // Color scheme
+  const schemeName = config.colors?.scheme || 'Catppuccin Mocha';
+  const scheme = colorSchemes[schemeName];
+
+  if (scheme) {
+    const bg = scheme.background || '#1e1e2e';
+    const fg = scheme.foreground || '#cdd6f4';
+    vp.style.background = bg;
+    vp.style.color = fg;
+    vp.style.setProperty('--ansi-fg', fg);
+
+    if (scheme.ansi && scheme.ansi.length >= 8) {
+      for (let i = 0; i < 8; i++) {
+        vp.style.setProperty(`--ansi-${i}`, scheme.ansi[i]);
+      }
+    }
+
+    // Cursor color
+    if (scheme.cursor_bg) {
+      cursor.style.setProperty('--cursor-color', scheme.cursor_bg);
+    }
+
+    // Tab bar background
+    tabBar.style.background = adjustBrightness(bg, -15);
+  }
+
+  // Window opacity
+  const opacity = config.window?.opacity != null ? config.window.opacity : 1.0;
+  vp.style.opacity = opacity;
+
+  // Window padding
+  const pad = config.window?.padding || {};
+  terminal.style.paddingLeft = parsePadding(pad.left, fontSize);
+  terminal.style.paddingRight = parsePadding(pad.right, fontSize);
+  terminal.style.paddingTop = parsePadding(pad.top, fontSize);
+  terminal.style.paddingBottom = parsePadding(pad.bottom, fontSize);
+
+  // Tab bar visibility
+  const showTabBar = config.tab_bar?.enable_tab_bar !== false;
+  tabBar.style.display = showTabBar ? 'flex' : 'none';
+
+  // Tab bar position
+  const tabBarBottom = config.tab_bar?.tab_bar_at_bottom || false;
+  vp.style.flexDirection = tabBarBottom ? 'column-reverse' : 'column';
+
+  // Fancy tab bar style
+  const fancy = config.tab_bar?.use_fancy_tab_bar !== false;
+  tabBar.classList.toggle('vp-tab-bar-simple', !fancy);
+
+  // Tab index visibility
+  const showIndex = config.tab_bar?.show_tab_index_in_tab_bar !== false;
+  tabBar.querySelectorAll('.vp-tab-index').forEach(el => {
+    el.style.display = showIndex ? 'inline' : 'none';
+  });
+
+  // Cursor style
+  const cursorStyle = config.cursor?.style || 'SteadyBlock';
+  cursor.className = 'vp-cursor';
+  if (cursorStyle.includes('Block')) {
+    cursor.classList.add('vp-cursor-block');
+    cursor.style.color = scheme?.cursor_bg || '#f5e0dc';
+  } else if (cursorStyle.includes('Bar')) {
+    cursor.classList.add('vp-cursor-bar');
+  } else if (cursorStyle.includes('Underline')) {
+    cursor.classList.add('vp-cursor-underline');
+  }
+  if (cursorStyle.startsWith('Blinking')) {
+    cursor.classList.add('vp-cursor-blink');
+    const rate = config.cursor?.blink_rate || 500;
+    cursor.style.setProperty('--cursor-blink-rate', `${rate}ms`);
+  }
+
+  // Scrollbar
+  const showScrollBar = config.scrollback?.enable_scroll_bar || false;
+  terminal.classList.toggle('vp-scrollbar', showScrollBar);
+
+  // Font detection
+  checkFontAvailability(fontFamily, fontBadge);
+}
+
+function parsePadding(val, fontSize) {
+  if (!val) return '8px';
+  const str = String(val);
+  if (str.endsWith('cell')) {
+    const n = parseFloat(str) || 1;
+    return `${Math.round(n * fontSize * 0.8)}px`;
+  }
+  if (str.endsWith('px') || str.endsWith('%')) return str;
+  const n = parseFloat(str);
+  return isNaN(n) ? '8px' : `${n}px`;
+}
+
+function adjustBrightness(hex, amount) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.max(0, Math.min(255, ((num >> 16) & 0xff) + amount));
+  const g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + amount));
+  const b = Math.max(0, Math.min(255, (num & 0xff) + amount));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+function checkFontAvailability(fontFamily, badge) {
+  if (!badge) return;
+  if (!fontFamily || fontFamily === 'JetBrains Mono') {
+    badge.style.display = 'none';
+    return;
+  }
+  try {
+    const available = document.fonts.check(`16px '${fontFamily}'`);
+    if (available) {
+      badge.style.display = 'none';
+    } else {
+      badge.textContent = `Font "${fontFamily}" not found locally — using fallback`;
+      badge.style.display = 'block';
+    }
+  } catch {
+    badge.style.display = 'none';
+  }
+}
+
 function highlightLua(code) {
   return code
     .replace(/&/g, '&amp;')
@@ -419,7 +583,10 @@ function escHtml(s) {
 let previewTimeout;
 function onConfigChange() {
   clearTimeout(previewTimeout);
-  previewTimeout = setTimeout(updatePreview, 150);
+  previewTimeout = setTimeout(() => {
+    updatePreview();
+    updateVisualPreview();
+  }, 150);
 }
 
 function showToast(msg, type) {
@@ -460,6 +627,7 @@ async function resetDefaults() {
   };
   loadConfigToUI();
   updatePreview();
+  updateVisualPreview();
   showToast('Reset to defaults', 'success');
 }
 

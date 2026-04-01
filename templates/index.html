@@ -344,11 +344,41 @@
     <!-- Preview Panel -->
     <aside class="preview">
       <div class="preview-header">
-        <span>Lua Preview</span>
+        <div class="preview-tabs">
+          <button class="preview-tab active" data-preview="visual">Visual</button>
+          <button class="preview-tab" data-preview="lua">Lua</button>
+        </div>
         <button class="btn btn-secondary btn-sm" onclick="updatePreview()">Refresh</button>
       </div>
       <div class="preview-content">
-        <pre id="lua-preview"></pre>
+        <!-- Visual Preview -->
+        <div id="visual-preview-pane" class="preview-pane active">
+          <div id="visual-preview" class="visual-preview">
+            <div class="vp-tab-bar" id="vp-tab-bar">
+              <div class="vp-tab vp-tab-active"><span class="vp-tab-index">0:</span> ~/projects</div>
+              <div class="vp-tab"><span class="vp-tab-index">1:</span> ssh</div>
+              <div class="vp-new-tab">+</div>
+            </div>
+            <div class="vp-terminal" id="vp-terminal">
+              <div class="vp-line"><span class="ansi-green">user@host</span><span class="ansi-default">:</span><span class="ansi-blue">~/projects</span><span class="ansi-default">$ </span>ls -la</div>
+              <div class="vp-line"><span class="ansi-blue">drwxr-xr-x</span>  <span class="ansi-cyan">user</span>  <span class="ansi-default">docs</span></div>
+              <div class="vp-line"><span class="ansi-default">-rw-r--r--</span>  <span class="ansi-cyan">user</span>  <span class="ansi-green">README.md</span></div>
+              <div class="vp-line"><span class="ansi-default">-rwxr-xr-x</span>  <span class="ansi-cyan">user</span>  <span class="ansi-red">build.sh</span></div>
+              <div class="vp-line"><span class="ansi-default">-rw-r--r--</span>  <span class="ansi-cyan">user</span>  <span class="ansi-yellow">config.toml</span></div>
+              <div class="vp-line"></div>
+              <div class="vp-line"><span class="ansi-green">user@host</span><span class="ansi-default">:</span><span class="ansi-blue">~/projects</span><span class="ansi-default">$ </span>git status</div>
+              <div class="vp-line"><span class="ansi-default">On branch </span><span class="ansi-magenta">main</span></div>
+              <div class="vp-line"><span class="ansi-green">Your branch is up to date.</span></div>
+              <div class="vp-line"></div>
+              <div class="vp-line"><span class="ansi-green">user@host</span><span class="ansi-default">:</span><span class="ansi-blue">~/projects</span><span class="ansi-default">$ </span><span id="vp-cursor" class="vp-cursor">&nbsp;</span></div>
+            </div>
+          </div>
+          <div class="vp-font-badge" id="vp-font-badge" style="display:none;"></div>
+        </div>
+        <!-- Lua Preview -->
+        <div id="lua-preview-pane" class="preview-pane">
+          <pre id="lua-preview"></pre>
+        </div>
       </div>
     </aside>
   </div>

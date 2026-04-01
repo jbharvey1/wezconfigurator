@@ -243,6 +243,16 @@ def get_options():
     )
 
 
+@app.route("/api/color-schemes", methods=["GET"])
+def get_color_schemes():
+    """Return color scheme hex data for visual preview."""
+    schemes_file = os.path.join(app.static_folder, "color_schemes.json")
+    if os.path.isfile(schemes_file):
+        with open(schemes_file) as f:
+            return jsonify(json.load(f))
+    return jsonify({})
+
+
 @app.route("/api/config/raw", methods=["GET"])
 def get_raw_config():
     """Return the raw Lua config file content."""
@@ -265,10 +275,13 @@ def _deep_merge(base, override):
 
 
 def open_browser():
-    webbrowser.open("http://127.0.0.1:5126")
+    webbrowser.open("https://127.0.0.1:5126")
 
 
 if __name__ == "__main__":
+    ssl_cert = "c:/ai/procman/certs/server.pem"
+    ssl_key = "c:/ai/procman/certs/server-key.pem"
     Timer(1.0, open_browser).start()
-    print("\n  WezTerm Configurator running at http://127.0.0.1:5126\n")
-    app.run(host="127.0.0.1", port=5126, debug=False)
+    print("\n  WezTerm Configurator running at https://127.0.0.1:5126\n")
+    app.run(host="127.0.0.1", port=5126, debug=False,
+            ssl_context=(ssl_cert, ssl_key))
